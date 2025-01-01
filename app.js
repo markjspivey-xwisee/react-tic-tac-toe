@@ -13,7 +13,19 @@ function TicTacToe() {
     React.useEffect(() => {
         const randomId = Math.random().toString(36).substring(7);
         const newPeer = new Peer(randomId, {
-            debug: 2
+            debug: 2,
+            config: {
+                'iceServers': [
+                    { url: 'stun:stun.l.google.com:19302' },
+                    { url: 'stun:stun1.l.google.com:19302' },
+                    { url: 'stun:stun2.l.google.com:19302' },
+                    { url: 'stun:stun3.l.google.com:19302' },
+                    { url: 'stun:stun4.l.google.com:19302' }
+                ]
+            },
+            host: '0.peerjs.com',
+            secure: true,
+            port: 443
         });
 
         newPeer.on('open', (id) => {
@@ -24,7 +36,14 @@ function TicTacToe() {
 
         newPeer.on('error', (err) => {
             console.error('PeerJS error:', err);
-            setError('Connection error: ' + err.message);
+            if (err.type === 'peer-unavailable') {
+                setError('Could not find the game room. Please check the Room ID and try again.');
+            } else if (err.type === 'disconnected') {
+                setError('Connection lost. Please try again.');
+                setGameMode('menu');
+            } else {
+                setError('Connection error: ' + err.message);
+            }
         });
 
         newPeer.on('connection', (connection) => {
@@ -105,7 +124,7 @@ function TicTacToe() {
         }
 
         try {
-            const connection = peer.connect(roomId);
+            const connection = peer.connect(roomId.trim());
             connection.on('open', () => {
                 setConn(connection);
                 setupConnection(connection);
