@@ -2,13 +2,33 @@
     "name": "React Tic Tac Toe",
     "image": "mcr.microsoft.com/devcontainers/universal:2",
     "forwardPorts": [8000],
-    "postCreateCommand": "echo 'Ready to serve the app! Run: python -m http.server 8000'",
+    "postCreateCommand": "echo 'Starting server...' && python -m http.server 8000 &",
+    "postAttachCommand": "echo 'Server is running at http://localhost:8000'",
     "customizations": {
         "vscode": {
             "extensions": [
                 "dbaeumer.vscode-eslint",
                 "esbenp.prettier-vscode"
+            ],
+            "settings": {
+                "editor.formatOnSave": true,
+                "editor.defaultFormatter": "esbenp.prettier-vscode",
+                "files.autoSave": "afterDelay",
+                "workbench.startupEditor": "none",
+                "workbench.welcomePage.walkthroughs.openOnInstall": false
+            }
+        },
+        "codespaces": {
+            "openFiles": [
+                "README.md",
+                "index.html"
             ]
+        }
+    },
+    "portsAttributes": {
+        "8000": {
+            "label": "Web App",
+            "onAutoForward": "openPreview"
         }
     }
 }
