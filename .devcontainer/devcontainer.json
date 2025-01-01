@@ -28,7 +28,8 @@
     "portsAttributes": {
         "8000": {
             "label": "Web App",
-            "onAutoForward": "openPreview"
+            "onAutoForward": "openPreview",
+            "visibility": "public"
         }
     }
 }
