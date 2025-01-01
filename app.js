@@ -25,11 +25,7 @@ function TicTacToe() {
                     { urls: 'stun:stun3.l.google.com:19302' },
                     { urls: 'stun:stun4.l.google.com:19302' }
                 ]
-            },
-            host: 'peerjs-server.herokuapp.com',
-            secure: true,
-            port: 443,
-            path: '/'
+            }
         });
 
         newPeer.on('open', (id) => {
