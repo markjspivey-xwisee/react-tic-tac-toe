@@ -41,16 +41,18 @@ h1, h2 {
     font-weight: bold;
     cursor: pointer;
     background: none;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
 .square:hover:not(:disabled) {
     background-color: #f5f5f5;
+    transform: scale(1.05);
 }
 
 .square:disabled {
     cursor: not-allowed;
-    opacity: 0.7;
+    opacity: 0.8;
+    transform: none;
 }
 
 .status {
@@ -58,6 +60,7 @@ h1, h2 {
     margin: 1rem 0;
     color: #666;
     min-height: 1.5em;
+    font-weight: bold;
 }
 
 button {
@@ -75,13 +78,24 @@ button {
 
 button:hover:not(:disabled) {
     background-color: #45a049;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 button:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
+}
+
+button.leave {
+    background-color: #dc3545;
+    margin-top: 1rem;
+}
+
+button.leave:hover:not(:disabled) {
+    background-color: #c82333;
 }
 
 .menu, .join-menu, .host-menu {
@@ -99,26 +113,29 @@ button:disabled {
     margin: 0.5rem 0;
     width: 100%;
     box-sizing: border-box;
-    transition: border-color 0.2s;
+    transition: all 0.2s;
 }
 
 .join-menu input:focus {
     border-color: #4CAF50;
     outline: none;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 .join-menu input:disabled {
     background-color: #f5f5f5;
     cursor: not-allowed;
+    opacity: 0.8;
 }
 
 .player-info {
-    margin-top: 1rem;
+    margin: 1rem 0;
     font-size: 1.1rem;
     color: #666;
     padding: 10px;
     background-color: #f8f8f8;
     border-radius: 5px;
+    font-weight: bold;
 }
 
 .host-menu p {
@@ -132,21 +149,22 @@ button:disabled {
     margin: 1rem 0;
     user-select: all;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
 .host-menu p:hover {
     background-color: #f0f0f0;
+    border-color: #4CAF50;
 }
 
 .error {
-    color: #d32f2f;
-    background-color: #ffebee;
+    color: #dc3545;
+    background-color: #f8d7da;
     padding: 12px;
     border-radius: 5px;
     margin: 1rem 0;
     font-size: 0.95rem;
-    border: 1px solid #ffcdd2;
+    border: 1px solid #f5c6cb;
     animation: shake 0.5s ease-in-out;
 }
 
