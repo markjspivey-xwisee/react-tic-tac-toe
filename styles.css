@@ -1,0 +1,45 @@
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    gap: 5px;
+    margin: 20px auto;
+    width: fit-content;
+}
+
+.square {
+    width: 100px;
+    height: 100px;
+    background: #fff;
+    border: 2px solid #333;
+    font-size: 48px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.game {
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+.status {
+    margin: 20px 0;
+    font-size: 24px;
+}
+
+.restart {
+    padding: 10px 20px;
+    font-size: 16px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+.restart:hover {
+    background: #45a049;
+}
