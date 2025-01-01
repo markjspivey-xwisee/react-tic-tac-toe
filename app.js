@@ -55,9 +55,14 @@ function TicTacToe() {
 
         setConnecting(true);
         try {
-            const { sdp, type } = JSON.parse(atob(connectionCode.trim()));
-            if (type !== 'offer') {
-                throw new Error('Invalid connection code');
+            let offerData;
+            try {
+                offerData = JSON.parse(atob(connectionCode.trim()));
+                if (offerData.type !== 'offer') {
+                    throw new Error('Invalid connection code');
+                }
+            } catch (e) {
+                throw new Error('Invalid connection code format');
             }
 
             const pc = new RTCPeerConnection({
@@ -82,7 +87,7 @@ function TicTacToe() {
                 }
             };
 
-            await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            await pc.setRemoteDescription(new RTCSessionDescription(offerData.sdp));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
@@ -92,7 +97,7 @@ function TicTacToe() {
             setError(null);
         } catch (err) {
             console.error('Error joining game:', err);
-            setError('Failed to join game. Please check the connection code and try again.');
+            setError(err.message || 'Failed to join game. Please check the connection code and try again.');
             setConnecting(false);
         }
     };
