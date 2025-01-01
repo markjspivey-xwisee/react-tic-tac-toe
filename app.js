@@ -11,21 +11,62 @@ function TicTacToe() {
     const [peerConnection, setPeerConnection] = React.useState(null);
     const [dataChannel, setDataChannel] = React.useState(null);
 
+    // Cleanup function for WebRTC connections
+    React.useEffect(() => {
+        return () => {
+            if (dataChannel) {
+                dataChannel.close();
+            }
+            if (peerConnection) {
+                peerConnection.close();
+            }
+        };
+    }, [dataChannel, peerConnection]);
+
     const createGame = async () => {
         try {
-            const pc = new RTCPeerConnection({
+            setConnecting(true);
+            setError(null);
+
+            // Create and configure the peer connection
+            const configuration = {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' }
                 ]
+            };
+
+            console.log('Creating RTCPeerConnection...');
+            const pc = new RTCPeerConnection(configuration);
+
+            // Set up connection monitoring
+            pc.onconnectionstatechange = () => {
+                console.log('Connection state:', pc.connectionState);
+                if (pc.connectionState === 'failed') {
+                    setError('Connection failed. Please try again.');
+                    setGameMode('menu');
+                }
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                console.log('ICE connection state:', pc.iceConnectionState);
+            };
+
+            // Create the data channel
+            console.log('Creating data channel...');
+            const channel = pc.createDataChannel('gameChannel', {
+                ordered: true
             });
 
-            const channel = pc.createDataChannel('gameChannel');
+            // Set up the data channel
             setupDataChannel(channel);
 
+            // Handle ICE candidates
             pc.onicecandidate = (e) => {
+                console.log('ICE candidate:', e.candidate);
                 if (e.candidate === null) {
                     // Connection gathering complete, create connection code
+                    console.log('ICE gathering complete');
                     const code = btoa(JSON.stringify({
                         sdp: pc.localDescription,
                         type: 'offer'
@@ -34,7 +75,10 @@ function TicTacToe() {
                 }
             };
 
+            // Create and set the offer
+            console.log('Creating offer...');
             const offer = await pc.createOffer();
+            console.log('Setting local description...');
             await pc.setLocalDescription(offer);
 
             setPeerConnection(pc);
@@ -43,7 +87,10 @@ function TicTacToe() {
             setError(null);
         } catch (err) {
             console.error('Error creating game:', err);
-            setError('Failed to create game. Please try again.');
+            setError('Failed to create game: ' + err.message);
+            setGameMode('menu');
+        } finally {
+            setConnecting(false);
         }
     };
 
@@ -54,7 +101,10 @@ function TicTacToe() {
         }
 
         setConnecting(true);
+        setError(null);
+
         try {
+            // Parse and validate the connection code
             let offerData;
             try {
                 offerData = JSON.parse(atob(connectionCode.trim()));
@@ -65,20 +115,42 @@ function TicTacToe() {
                 throw new Error('Invalid connection code format');
             }
 
-            const pc = new RTCPeerConnection({
+            // Create and configure the peer connection
+            const configuration = {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' }
                 ]
-            });
+            };
 
+            console.log('Creating RTCPeerConnection...');
+            const pc = new RTCPeerConnection(configuration);
+
+            // Set up connection monitoring
+            pc.onconnectionstatechange = () => {
+                console.log('Connection state:', pc.connectionState);
+                if (pc.connectionState === 'failed') {
+                    setError('Connection failed. Please try again.');
+                    setGameMode('menu');
+                }
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                console.log('ICE connection state:', pc.iceConnectionState);
+            };
+
+            // Handle incoming data channel
             pc.ondatachannel = (event) => {
+                console.log('Received data channel');
                 setupDataChannel(event.channel);
             };
 
+            // Handle ICE candidates
             pc.onicecandidate = async (e) => {
+                console.log('ICE candidate:', e.candidate);
                 if (e.candidate === null) {
                     // Connection gathering complete, create answer code
+                    console.log('ICE gathering complete');
                     const code = btoa(JSON.stringify({
                         sdp: pc.localDescription,
                         type: 'answer'
@@ -87,8 +159,12 @@ function TicTacToe() {
                 }
             };
 
+            // Set the remote description and create answer
+            console.log('Setting remote description...');
             await pc.setRemoteDescription(new RTCSessionDescription(offerData.sdp));
+            console.log('Creating answer...');
             const answer = await pc.createAnswer();
+            console.log('Setting local description...');
             await pc.setLocalDescription(answer);
 
             setPeerConnection(pc);
@@ -98,11 +174,15 @@ function TicTacToe() {
         } catch (err) {
             console.error('Error joining game:', err);
             setError(err.message || 'Failed to join game. Please check the connection code and try again.');
+            setGameMode('menu');
+        } finally {
             setConnecting(false);
         }
     };
 
     const setupDataChannel = (channel) => {
+        console.log('Setting up data channel...');
+
         channel.onopen = () => {
             console.log('Data channel opened');
             setDataChannel(channel);
@@ -120,15 +200,20 @@ function TicTacToe() {
 
         channel.onerror = (err) => {
             console.error('Data channel error:', err);
-            setError('Connection error. Please try again.');
+            setError('Connection error: ' + err.message);
         };
 
         channel.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'move') {
-                handleRemoteMove(data.position);
-            } else if (data.type === 'restart') {
-                handleRemoteRestart();
+            console.log('Received message:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'move') {
+                    handleRemoteMove(data.position);
+                } else if (data.type === 'restart') {
+                    handleRemoteRestart();
+                }
+            } catch (err) {
+                console.error('Error processing message:', err);
             }
         };
     };
@@ -161,10 +246,15 @@ function TicTacToe() {
         setIsX(!isX);
         setIsMyTurn(false);
 
-        dataChannel.send(JSON.stringify({
-            type: 'move',
-            position: i
-        }));
+        try {
+            dataChannel.send(JSON.stringify({
+                type: 'move',
+                position: i
+            }));
+        } catch (err) {
+            console.error('Error sending move:', err);
+            setError('Failed to send move. Connection may be lost.');
+        }
 
         checkWinner(newBoard);
     };
@@ -202,7 +292,12 @@ function TicTacToe() {
         setWinner(null);
         setIsMyTurn(playerSymbol === 'X');
         if (dataChannel) {
-            dataChannel.send(JSON.stringify({ type: 'restart' }));
+            try {
+                dataChannel.send(JSON.stringify({ type: 'restart' }));
+            } catch (err) {
+                console.error('Error sending restart:', err);
+                setError('Failed to restart game. Connection may be lost.');
+            }
         }
     };
 
@@ -245,9 +340,13 @@ function TicTacToe() {
     const renderMenu = () => (
         <div className="menu">
             <h2>Choose Game Mode</h2>
-            <button onClick={createGame}>Host Game</button>
+            <button onClick={createGame} disabled={connecting}>
+                {connecting ? 'Creating Game...' : 'Host Game'}
+            </button>
             <div className="join-section">
-                <button onClick={() => setGameMode('join')}>Join Game</button>
+                <button onClick={() => setGameMode('join')} disabled={connecting}>
+                    Join Game
+                </button>
             </div>
             {error && <div className="error">{error}</div>}
         </div>
