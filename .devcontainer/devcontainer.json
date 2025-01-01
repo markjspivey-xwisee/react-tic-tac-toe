@@ -1,0 +1,14 @@
+{
+    "name": "React Tic Tac Toe",
+    "image": "mcr.microsoft.com/devcontainers/universal:2",
+    "forwardPorts": [8000],
+    "postCreateCommand": "echo 'Ready to serve the app! Run: python -m http.server 8000'",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode"
+            ]
+        }
+    }
+}
