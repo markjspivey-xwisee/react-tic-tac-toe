@@ -5,34 +5,68 @@ function TicTacToe() {
     const [peer, setPeer] = React.useState(null);
     const [conn, setConn] = React.useState(null);
     const [roomId, setRoomId] = React.useState('');
-    const [gameMode, setGameMode] = React.useState('menu'); // 'menu', 'host', 'join', 'play'
+    const [gameMode, setGameMode] = React.useState('menu');
     const [playerSymbol, setPlayerSymbol] = React.useState(null);
+    const [error, setError] = React.useState(null);
 
     React.useEffect(() => {
-        const newPeer = new Peer();
+        // Initialize PeerJS with a random ID
+        const randomId = Math.random().toString(36).substring(7);
+        const newPeer = new Peer(randomId, {
+            debug: 2
+        });
+
         newPeer.on('open', (id) => {
+            console.log('My peer ID is: ' + id);
             setPeer(newPeer);
+            setError(null);
+        });
+
+        newPeer.on('error', (err) => {
+            console.error('PeerJS error:', err);
+            setError('Connection error: ' + err.message);
         });
 
         newPeer.on('connection', (connection) => {
+            console.log('Incoming connection from:', connection.peer);
             setConn(connection);
             setupConnection(connection);
             setGameMode('play');
             setPlayerSymbol('X');
+            setError(null);
         });
 
         return () => {
-            if (peer) {
-                peer.destroy();
+            if (newPeer) {
+                newPeer.destroy();
             }
         };
     }, []);
 
     const setupConnection = (connection) => {
+        connection.on('open', () => {
+            console.log('Connection opened');
+            setError(null);
+        });
+
         connection.on('data', (data) => {
+            console.log('Received data:', data);
             if (data.type === 'move') {
                 handleRemoteMove(data.position);
+            } else if (data.type === 'restart') {
+                restartGame();
             }
+        });
+
+        connection.on('close', () => {
+            console.log('Connection closed');
+            setError('Connection closed. Please start a new game.');
+            setGameMode('menu');
+        });
+
+        connection.on('error', (err) => {
+            console.error('Connection error:', err);
+            setError('Connection error: ' + err.message);
         });
     };
 
@@ -45,17 +79,34 @@ function TicTacToe() {
     };
 
     const hostGame = () => {
+        if (!peer) {
+            setError('Connection not ready. Please try again.');
+            return;
+        }
         setGameMode('host');
         setRoomId(peer.id);
+        setError(null);
     };
 
     const joinGame = () => {
-        if (!roomId) return;
-        const connection = peer.connect(roomId);
-        setConn(connection);
-        setupConnection(connection);
-        setGameMode('play');
-        setPlayerSymbol('O');
+        if (!peer || !roomId) {
+            setError('Please enter a valid room ID.');
+            return;
+        }
+
+        try {
+            const connection = peer.connect(roomId);
+            connection.on('open', () => {
+                setConn(connection);
+                setupConnection(connection);
+                setGameMode('play');
+                setPlayerSymbol('O');
+                setError(null);
+            });
+        } catch (err) {
+            console.error('Error joining game:', err);
+            setError('Failed to join game: ' + err.message);
+        }
     };
 
     const handleClick = (i) => {
@@ -119,6 +170,9 @@ function TicTacToe() {
         setBoard(Array(9).fill(null));
         setIsX(true);
         setWinner(null);
+        if (conn) {
+            conn.send({ type: 'restart' });
+        }
     };
 
     const renderStatus = () => {
@@ -138,6 +192,7 @@ function TicTacToe() {
             <div className="join-section">
                 <button onClick={() => setGameMode('join')}>Join Game</button>
             </div>
+            {error && <div className="error">{error}</div>}
         </div>
     );
 
@@ -152,6 +207,7 @@ function TicTacToe() {
             />
             <button onClick={joinGame}>Join</button>
             <button onClick={() => setGameMode('menu')}>Back</button>
+            {error && <div className="error">{error}</div>}
         </div>
     );
 
@@ -160,6 +216,7 @@ function TicTacToe() {
             <h2>Waiting for Player</h2>
             <p>Share this Room ID: {roomId}</p>
             <button onClick={() => setGameMode('menu')}>Back</button>
+            {error && <div className="error">{error}</div>}
         </div>
     );
 
@@ -190,6 +247,7 @@ function TicTacToe() {
             <div className="player-info">
                 You are: {playerSymbol}
             </div>
+            {error && <div className="error">{error}</div>}
         </div>
     );
 

@@ -14,9 +14,11 @@ body {
     padding: 2rem;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    max-width: 90%;
+    width: 400px;
 }
 
-h1 {
+h1, h2 {
     color: #333;
     margin-bottom: 1rem;
 }
@@ -91,11 +93,13 @@ h1 {
 }
 
 .join-menu input {
-    padding: 10px;
+    padding: 12px;
     font-size: 1rem;
     border: 2px solid #ddd;
     border-radius: 5px;
     margin: 0.5rem 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .join-menu input:focus {
@@ -107,14 +111,48 @@ h1 {
     margin-top: 1rem;
     font-size: 1.1rem;
     color: #666;
+    padding: 10px;
+    background-color: #f8f8f8;
+    border-radius: 5px;
 }
 
 .host-menu p {
     background-color: #f8f8f8;
-    padding: 10px;
+    padding: 15px;
     border-radius: 5px;
     border: 1px solid #ddd;
     font-family: monospace;
     font-size: 1.1rem;
     word-break: break-all;
+    margin: 1rem 0;
+}
+
+.error {
+    color: #d32f2f;
+    background-color: #ffebee;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    border: 1px solid #ffcdd2;
+}
+
+.join-section {
+    margin-top: 1rem;
+}
+
+@media (max-width: 480px) {
+    .game {
+        padding: 1rem;
+    }
+
+    .square {
+        width: 60px;
+        height: 60px;
+        font-size: 2rem;
+    }
+
+    .menu, .join-menu, .host-menu {
+        min-width: 250px;
+    }
 }
