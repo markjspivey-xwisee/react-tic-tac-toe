@@ -9,38 +9,47 @@ function TicTacToe() {
     const [playerSymbol, setPlayerSymbol] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [isMyTurn, setIsMyTurn] = React.useState(false);
+    const [connecting, setConnecting] = React.useState(false);
 
     React.useEffect(() => {
         const randomId = Math.random().toString(36).substring(7);
+        console.log('Initializing peer with ID:', randomId);
+        
         const newPeer = new Peer(randomId, {
-            debug: 2,
+            debug: 3,
             config: {
                 'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' },
-                    { url: 'stun:stun1.l.google.com:19302' },
-                    { url: 'stun:stun2.l.google.com:19302' },
-                    { url: 'stun:stun3.l.google.com:19302' },
-                    { url: 'stun:stun4.l.google.com:19302' }
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
                 ]
             },
-            host: '0.peerjs.com',
+            host: 'peerjs-server.herokuapp.com',
             secure: true,
-            port: 443
+            port: 443,
+            path: '/'
         });
 
         newPeer.on('open', (id) => {
-            console.log('My peer ID is: ' + id);
+            console.log('Peer connection opened with ID:', id);
             setPeer(newPeer);
             setError(null);
         });
 
         newPeer.on('error', (err) => {
             console.error('PeerJS error:', err);
+            setConnecting(false);
             if (err.type === 'peer-unavailable') {
                 setError('Could not find the game room. Please check the Room ID and try again.');
             } else if (err.type === 'disconnected') {
                 setError('Connection lost. Please try again.');
                 setGameMode('menu');
+            } else if (err.type === 'network') {
+                setError('Network error. Please check your connection and try again.');
+            } else if (err.type === 'server-error') {
+                setError('Server error. Please try again in a few moments.');
             } else {
                 setError('Connection error: ' + err.message);
             }
@@ -52,11 +61,13 @@ function TicTacToe() {
             setupConnection(connection);
             setGameMode('play');
             setPlayerSymbol('X');
-            setIsMyTurn(true); // X goes first
+            setIsMyTurn(true);
             setError(null);
+            setConnecting(false);
         });
 
         return () => {
+            console.log('Cleaning up peer connection');
             if (newPeer) {
                 newPeer.destroy();
             }
@@ -65,8 +76,9 @@ function TicTacToe() {
 
     const setupConnection = (connection) => {
         connection.on('open', () => {
-            console.log('Connection opened');
+            console.log('Connection opened with peer:', connection.peer);
             setError(null);
+            setConnecting(false);
         });
 
         connection.on('data', (data) => {
@@ -82,11 +94,13 @@ function TicTacToe() {
             console.log('Connection closed');
             setError('Connection closed. Please start a new game.');
             setGameMode('menu');
+            setConnecting(false);
         });
 
         connection.on('error', (err) => {
             console.error('Connection error:', err);
             setError('Connection error: ' + err.message);
+            setConnecting(false);
         });
     };
 
@@ -112,6 +126,7 @@ function TicTacToe() {
             setError('Connection not ready. Please try again.');
             return;
         }
+        console.log('Hosting game with ID:', peer.id);
         setGameMode('host');
         setRoomId(peer.id);
         setError(null);
@@ -123,19 +138,26 @@ function TicTacToe() {
             return;
         }
 
+        console.log('Attempting to join game:', roomId.trim());
+        setConnecting(true);
+        setError(null);
+
         try {
             const connection = peer.connect(roomId.trim());
             connection.on('open', () => {
+                console.log('Successfully connected to host');
                 setConn(connection);
                 setupConnection(connection);
                 setGameMode('play');
                 setPlayerSymbol('O');
-                setIsMyTurn(false); // X goes first
+                setIsMyTurn(false);
                 setError(null);
+                setConnecting(false);
             });
         } catch (err) {
             console.error('Error joining game:', err);
             setError('Failed to join game: ' + err.message);
+            setConnecting(false);
         }
     };
 
@@ -151,6 +173,7 @@ function TicTacToe() {
         setIsMyTurn(false);
 
         if (conn) {
+            console.log('Sending move:', i);
             conn.send({
                 type: 'move',
                 position: i
@@ -201,6 +224,7 @@ function TicTacToe() {
         setWinner(null);
         setIsMyTurn(playerSymbol === 'X');
         if (conn) {
+            console.log('Sending restart request');
             conn.send({ type: 'restart' });
         }
     };
@@ -234,9 +258,14 @@ function TicTacToe() {
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
                 placeholder="Enter Room ID"
+                disabled={connecting}
             />
-            <button onClick={joinGame}>Join</button>
-            <button onClick={() => setGameMode('menu')}>Back</button>
+            <button onClick={joinGame} disabled={connecting}>
+                {connecting ? 'Connecting...' : 'Join'}
+            </button>
+            <button onClick={() => setGameMode('menu')} disabled={connecting}>
+                Back
+            </button>
             {error && <div className="error">{error}</div>}
         </div>
     );
