@@ -2,8 +2,6 @@
     "name": "React Tic Tac Toe",
     "image": "mcr.microsoft.com/devcontainers/universal:2",
     "forwardPorts": [8000],
-    "postCreateCommand": "cd /workspaces/react-tic-tac-toe && python -m http.server 8000 &",
-    "postStartCommand": "cd /workspaces/react-tic-tac-toe && python -m http.server 8000 &",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -23,12 +21,7 @@
             ]
         }
     },
-    "portsAttributes": {
-        "8000": {
-            "label": "Web App",
-            "onAutoForward": "openBrowser",
-            "visibility": "public",
-            "protocol": "http"
-        }
+    "features": {
+        "ghcr.io/devcontainers/features/github-cli:1": {}
     }
 }

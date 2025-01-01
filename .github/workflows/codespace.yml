@@ -1,0 +1,19 @@
+name: Codespace Startup
+on: 
+  codespace_startup:
+    types: [startup]
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Start Python Server
+        run: |
+          cd /workspaces/react-tic-tac-toe
+          python -m http.server 8000 &
+        
+      - name: Configure Port Visibility
+        run: |
+          gh codespace ports visibility 8000:public -c ${{ github.event.codespace.name }}
