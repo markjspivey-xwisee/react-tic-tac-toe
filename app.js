@@ -1,17 +1,3 @@
-// Initialize Firebase
-const firebaseConfig = {
-    apiKey: "AIzaSyDxkT_ZKmqpnmBHrvpVwk4qz5GlWL5RQxc",
-    authDomain: "tic-tac-toe-multiplayer-d4e3f.firebaseapp.com",
-    databaseURL: "https://tic-tac-toe-multiplayer-d4e3f-default-rtdb.firebaseio.com",
-    projectId: "tic-tac-toe-multiplayer-d4e3f",
-    storageBucket: "tic-tac-toe-multiplayer-d4e3f.appspot.com",
-    messagingSenderId: "849343472676",
-    appId: "1:849343472676:web:c6c91c6cb58c1c7d6e6d6d"
-};
-
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-
 function TicTacToe() {
     const [board, setBoard] = React.useState(Array(9).fill(null));
     const [isX, setIsX] = React.useState(true);
@@ -22,6 +8,8 @@ function TicTacToe() {
     const [error, setError] = React.useState(null);
     const [isMyTurn, setIsMyTurn] = React.useState(false);
     const [connecting, setConnecting] = React.useState(false);
+
+    const database = firebase.database();
 
     React.useEffect(() => {
         if (gameId && gameMode === 'play') {
@@ -37,6 +25,7 @@ function TicTacToe() {
                 }
             });
 
+            // Clean up listener when component unmounts or game changes
             return () => {
                 gameRef.off();
             };
@@ -51,7 +40,8 @@ function TicTacToe() {
                 isX: true,
                 winner: null,
                 currentTurn: 'X',
-                players: 1
+                players: 1,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
             };
             
             await newGameRef.set(gameData);
@@ -69,6 +59,14 @@ function TicTacToe() {
                     setIsMyTurn(true);
                     gameRef.off();
                 }
+            });
+
+            // Clean up old games
+            const oldGames = database.ref('games').orderByChild('createdAt').endAt(Date.now() - 24 * 60 * 60 * 1000);
+            oldGames.once('value', (snapshot) => {
+                snapshot.forEach((childSnapshot) => {
+                    childSnapshot.ref.remove();
+                });
             });
         } catch (err) {
             console.error('Error creating game:', err);

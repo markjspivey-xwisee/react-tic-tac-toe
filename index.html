@@ -10,6 +10,19 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // Initialize Firebase before loading app.js
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxkT_ZKmqpnmBHrvpVwk4qz5GlWL5RQxc",
+            authDomain: "tic-tac-toe-multiplayer-d4e3f.firebaseapp.com",
+            databaseURL: "https://tic-tac-toe-multiplayer-d4e3f-default-rtdb.firebaseio.com",
+            projectId: "tic-tac-toe-multiplayer-d4e3f",
+            storageBucket: "tic-tac-toe-multiplayer-d4e3f.appspot.com",
+            messagingSenderId: "849343472676",
+            appId: "1:849343472676:web:c6c91c6cb58c1c7d6e6d6d"
+        };
+        firebase.initializeApp(firebaseConfig);
+    </script>
 </head>
 <body>
     <div id="root"></div>
