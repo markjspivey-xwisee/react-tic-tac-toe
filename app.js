@@ -2,72 +2,45 @@ function TicTacToe() {
     const [board, setBoard] = React.useState(Array(9).fill(null));
     const [isX, setIsX] = React.useState(true);
     const [winner, setWinner] = React.useState(null);
-    const [gameId, setGameId] = React.useState('');
     const [gameMode, setGameMode] = React.useState('menu');
     const [playerSymbol, setPlayerSymbol] = React.useState(null);
     const [error, setError] = React.useState(null);
     const [isMyTurn, setIsMyTurn] = React.useState(false);
     const [connecting, setConnecting] = React.useState(false);
-
-    const database = firebase.database();
-
-    React.useEffect(() => {
-        if (gameId && gameMode === 'play') {
-            const gameRef = database.ref(`games/${gameId}`);
-            
-            gameRef.on('value', (snapshot) => {
-                const gameData = snapshot.val();
-                if (gameData) {
-                    setBoard(gameData.board);
-                    setIsX(gameData.isX);
-                    setWinner(gameData.winner);
-                    setIsMyTurn(gameData.currentTurn === playerSymbol);
-                }
-            });
-
-            // Clean up listener when component unmounts or game changes
-            return () => {
-                gameRef.off();
-            };
-        }
-    }, [gameId, gameMode, playerSymbol]);
+    const [connectionCode, setConnectionCode] = React.useState('');
+    const [peerConnection, setPeerConnection] = React.useState(null);
+    const [dataChannel, setDataChannel] = React.useState(null);
 
     const createGame = async () => {
         try {
-            const newGameRef = database.ref('games').push();
-            const gameData = {
-                board: Array(9).fill(null),
-                isX: true,
-                winner: null,
-                currentTurn: 'X',
-                players: 1,
-                createdAt: firebase.database.ServerValue.TIMESTAMP
+            const pc = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            });
+
+            const channel = pc.createDataChannel('gameChannel');
+            setupDataChannel(channel);
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate === null) {
+                    // Connection gathering complete, create connection code
+                    const code = btoa(JSON.stringify({
+                        sdp: pc.localDescription,
+                        type: 'offer'
+                    }));
+                    setConnectionCode(code);
+                }
             };
-            
-            await newGameRef.set(gameData);
-            setGameId(newGameRef.key);
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            setPeerConnection(pc);
             setPlayerSymbol('X');
             setGameMode('host');
             setError(null);
-            
-            // Listen for second player
-            const gameRef = database.ref(`games/${newGameRef.key}`);
-            gameRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data && data.players === 2) {
-                    setGameMode('play');
-                    setIsMyTurn(true);
-                    gameRef.off();
-                }
-            });
-
-            // Clean up old games
-            const oldGames = database.ref('games').orderByChild('createdAt').endAt(Date.now() - 24 * 60 * 60 * 1000);
-            oldGames.once('value', (snapshot) => {
-                snapshot.forEach((childSnapshot) => {
-                    childSnapshot.ref.remove();
-                });
-            });
         } catch (err) {
             console.error('Error creating game:', err);
             setError('Failed to create game. Please try again.');
@@ -75,69 +48,120 @@ function TicTacToe() {
     };
 
     const joinGame = async () => {
-        if (!gameId.trim()) {
-            setError('Please enter a valid game ID.');
+        if (!connectionCode.trim()) {
+            setError('Please enter a valid connection code.');
             return;
         }
 
         setConnecting(true);
         try {
-            const gameRef = database.ref(`games/${gameId}`);
-            const snapshot = await gameRef.once('value');
-            const gameData = snapshot.val();
-
-            if (!gameData) {
-                setError('Game not found. Please check the ID and try again.');
-                setConnecting(false);
-                return;
+            const { sdp, type } = JSON.parse(atob(connectionCode.trim()));
+            if (type !== 'offer') {
+                throw new Error('Invalid connection code');
             }
 
-            if (gameData.players === 2) {
-                setError('Game is full. Please try another game.');
-                setConnecting(false);
-                return;
-            }
-
-            await gameRef.update({
-                players: 2
+            const pc = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
             });
 
+            pc.ondatachannel = (event) => {
+                setupDataChannel(event.channel);
+            };
+
+            pc.onicecandidate = async (e) => {
+                if (e.candidate === null) {
+                    // Connection gathering complete, create answer code
+                    const code = btoa(JSON.stringify({
+                        sdp: pc.localDescription,
+                        type: 'answer'
+                    }));
+                    setConnectionCode(code);
+                }
+            };
+
+            await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            setPeerConnection(pc);
             setPlayerSymbol('O');
-            setGameMode('play');
-            setIsMyTurn(false);
+            setGameMode('join');
             setError(null);
         } catch (err) {
             console.error('Error joining game:', err);
-            setError('Failed to join game. Please try again.');
+            setError('Failed to join game. Please check the connection code and try again.');
+            setConnecting(false);
         }
-        setConnecting(false);
     };
 
-    const handleClick = async (i) => {
-        if (winner || board[i] || !isMyTurn) {
+    const setupDataChannel = (channel) => {
+        channel.onopen = () => {
+            console.log('Data channel opened');
+            setDataChannel(channel);
+            setGameMode('play');
+            setIsMyTurn(playerSymbol === 'X');
+            setConnecting(false);
+            setError(null);
+        };
+
+        channel.onclose = () => {
+            console.log('Data channel closed');
+            setError('Connection closed. Please start a new game.');
+            setGameMode('menu');
+        };
+
+        channel.onerror = (err) => {
+            console.error('Data channel error:', err);
+            setError('Connection error. Please try again.');
+        };
+
+        channel.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'move') {
+                handleRemoteMove(data.position);
+            } else if (data.type === 'restart') {
+                handleRemoteRestart();
+            }
+        };
+    };
+
+    const handleRemoteMove = (position) => {
+        setBoard(prevBoard => {
+            const newBoard = [...prevBoard];
+            newBoard[position] = playerSymbol === 'X' ? 'O' : 'X';
+            return newBoard;
+        });
+        setIsX(prev => !prev);
+        setIsMyTurn(true);
+    };
+
+    const handleRemoteRestart = () => {
+        setBoard(Array(9).fill(null));
+        setIsX(true);
+        setWinner(null);
+        setIsMyTurn(playerSymbol === 'X');
+    };
+
+    const handleClick = (i) => {
+        if (winner || board[i] || !isMyTurn || !dataChannel) {
             return;
         }
 
         const newBoard = [...board];
         newBoard[i] = playerSymbol;
+        setBoard(newBoard);
+        setIsX(!isX);
+        setIsMyTurn(false);
 
-        try {
-            await database.ref(`games/${gameId}`).update({
-                board: newBoard,
-                isX: !isX,
-                currentTurn: playerSymbol === 'X' ? 'O' : 'X'
-            });
+        dataChannel.send(JSON.stringify({
+            type: 'move',
+            position: i
+        }));
 
-            const winner = checkWinner(newBoard);
-            if (winner) {
-                await database.ref(`games/${gameId}`).update({
-                    winner: winner
-                });
-            }
-        } catch (err) {
-            console.error('Error updating game:', err);
-            setError('Failed to make move. Please try again.');
-        }
+        checkWinner(newBoard);
     };
 
     const checkWinner = (currentBoard) => {
@@ -157,42 +181,42 @@ function TicTacToe() {
             if (currentBoard[a] && 
                 currentBoard[a] === currentBoard[b] && 
                 currentBoard[a] === currentBoard[c]) {
-                return currentBoard[a];
+                setWinner(currentBoard[a]);
+                return;
             }
         }
 
         if (currentBoard.every(square => square !== null)) {
-            return 'draw';
+            setWinner('draw');
         }
-
-        return null;
     };
 
-    const restartGame = async () => {
-        try {
-            await database.ref(`games/${gameId}`).update({
-                board: Array(9).fill(null),
-                isX: true,
-                winner: null,
-                currentTurn: 'X'
-            });
-        } catch (err) {
-            console.error('Error restarting game:', err);
-            setError('Failed to restart game. Please try again.');
+    const restartGame = () => {
+        setBoard(Array(9).fill(null));
+        setIsX(true);
+        setWinner(null);
+        setIsMyTurn(playerSymbol === 'X');
+        if (dataChannel) {
+            dataChannel.send(JSON.stringify({ type: 'restart' }));
         }
     };
 
     const leaveGame = () => {
-        if (gameId) {
-            database.ref(`games/${gameId}`).remove();
+        if (dataChannel) {
+            dataChannel.close();
+        }
+        if (peerConnection) {
+            peerConnection.close();
         }
         setGameMode('menu');
-        setGameId('');
+        setConnectionCode('');
         setPlayerSymbol(null);
         setBoard(Array(9).fill(null));
         setIsX(true);
         setWinner(null);
         setError(null);
+        setPeerConnection(null);
+        setDataChannel(null);
     };
 
     const renderSquare = (i) => {
@@ -229,9 +253,9 @@ function TicTacToe() {
             <h2>Join Game</h2>
             <input
                 type="text"
-                value={gameId}
-                onChange={(e) => setGameId(e.target.value)}
-                placeholder="Enter Game ID"
+                value={connectionCode}
+                onChange={(e) => setConnectionCode(e.target.value)}
+                placeholder="Enter Connection Code"
                 disabled={connecting}
             />
             <button onClick={joinGame} disabled={connecting}>
@@ -247,7 +271,8 @@ function TicTacToe() {
     const renderHost = () => (
         <div className="host-menu">
             <h2>Waiting for Player</h2>
-            <p>Share this Game ID: {gameId}</p>
+            <p>Share this Connection Code:</p>
+            <p className="code">{connectionCode}</p>
             <button onClick={leaveGame}>Back</button>
             {error && <div className="error">{error}</div>}
         </div>
