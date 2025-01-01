@@ -8,9 +8,9 @@ function TicTacToe() {
     const [gameMode, setGameMode] = React.useState('menu');
     const [playerSymbol, setPlayerSymbol] = React.useState(null);
     const [error, setError] = React.useState(null);
+    const [isMyTurn, setIsMyTurn] = React.useState(false);
 
     React.useEffect(() => {
-        // Initialize PeerJS with a random ID
         const randomId = Math.random().toString(36).substring(7);
         const newPeer = new Peer(randomId, {
             debug: 2
@@ -33,6 +33,7 @@ function TicTacToe() {
             setupConnection(connection);
             setGameMode('play');
             setPlayerSymbol('X');
+            setIsMyTurn(true); // X goes first
             setError(null);
         });
 
@@ -54,7 +55,7 @@ function TicTacToe() {
             if (data.type === 'move') {
                 handleRemoteMove(data.position);
             } else if (data.type === 'restart') {
-                restartGame();
+                handleRemoteRestart();
             }
         });
 
@@ -71,11 +72,20 @@ function TicTacToe() {
     };
 
     const handleRemoteMove = (position) => {
-        const newBoard = [...board];
-        newBoard[position] = playerSymbol === 'X' ? 'O' : 'X';
-        setBoard(newBoard);
-        setIsX(!isX);
-        checkWinner(newBoard);
+        setBoard(prevBoard => {
+            const newBoard = [...prevBoard];
+            newBoard[position] = playerSymbol === 'X' ? 'O' : 'X';
+            return newBoard;
+        });
+        setIsX(prev => !prev);
+        setIsMyTurn(true);
+    };
+
+    const handleRemoteRestart = () => {
+        setBoard(Array(9).fill(null));
+        setIsX(true);
+        setWinner(null);
+        setIsMyTurn(playerSymbol === 'X');
     };
 
     const hostGame = () => {
@@ -101,6 +111,7 @@ function TicTacToe() {
                 setupConnection(connection);
                 setGameMode('play');
                 setPlayerSymbol('O');
+                setIsMyTurn(false); // X goes first
                 setError(null);
             });
         } catch (err) {
@@ -110,16 +121,15 @@ function TicTacToe() {
     };
 
     const handleClick = (i) => {
-        if (winner || board[i] || 
-            (playerSymbol === 'X' && !isX) || 
-            (playerSymbol === 'O' && isX)) {
+        if (winner || board[i] || !isMyTurn) {
             return;
         }
 
         const newBoard = [...board];
-        newBoard[i] = isX ? 'X' : 'O';
+        newBoard[i] = playerSymbol;
         setBoard(newBoard);
         setIsX(!isX);
+        setIsMyTurn(false);
 
         if (conn) {
             conn.send({
@@ -170,6 +180,7 @@ function TicTacToe() {
         setBoard(Array(9).fill(null));
         setIsX(true);
         setWinner(null);
+        setIsMyTurn(playerSymbol === 'X');
         if (conn) {
             conn.send({ type: 'restart' });
         }
@@ -181,7 +192,7 @@ function TicTacToe() {
         } else if (winner) {
             return `Winner: ${winner}`;
         } else {
-            return `Next player: ${isX ? 'X' : 'O'}`;
+            return isMyTurn ? "Your turn" : "Opponent's turn";
         }
     };
 
